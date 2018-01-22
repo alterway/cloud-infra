@@ -476,7 +476,8 @@ Resources:
               command: |
                 mkdir /opt/prometheus
                 tar zxfv /opt/prometheus.tar.gz -C /opt/prometheus --strip=1
-                useradd -r prometheus
+                useradd -r -d /opt/prometheus -M prometheus
+                chown -R prometheus:prometheus /opt/prometheus
             05_enable_prometheus:
               command: "systemctl enable prometheus"
             06_start_prometheus:
