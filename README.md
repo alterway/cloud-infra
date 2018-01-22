@@ -1,2 +1,5 @@
-# infra
-Infrastructure template files for various providers
+# Cloud Infrastructure
+
+Infrastructure templates for various providers :
+
+- [AWS/ECS](./aws/ecs)
