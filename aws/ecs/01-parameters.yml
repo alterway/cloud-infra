@@ -1,0 +1,34 @@
+[
+  {
+    "ParameterKey": "ClusterMinSize",
+    "ParameterValue": "3"
+  },
+  {
+    "ParameterKey": "ClusterMaxSize",
+    "ParameterValue": "5"
+  },
+  {
+    "ParameterKey": "ClusterDesiredSize",
+    "ParameterValue": "3"
+  },
+  {
+    "ParameterKey": "InstanceType",
+    "ParameterValue": "m5.large"
+  },
+  {
+    "ParameterKey": "AMI",
+    "ParameterValue": "ami-1d46df64"
+  },
+  {
+    "ParameterKey": "Prefix",
+    "ParameterValue": "Prefix"
+  },
+  {
+    "ParameterKey": "Env",
+    "ParameterValue": "prod"
+  },
+  {
+    "ParameterKey": "DomainName",
+    "ParameterValue": "domainname.io"
+  }
+]

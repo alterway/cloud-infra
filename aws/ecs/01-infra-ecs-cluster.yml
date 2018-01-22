@@ -1,0 +1,400 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Production ECS Cluster
+
+#-------------------------------------------------------------------------------
+#--[ PARAMETERS ]---------------------------------------------------------------
+#-------------------------------------------------------------------------------
+
+Parameters:
+  ClusterMinSize:
+    Description: Minimum size of the ECS Cluster
+    Type: Number
+    Default: "3"
+
+  ClusterMaxSize:
+    Description: Maximum size of the ECS Cluster
+    Type: Number
+    Default: "5"
+
+  ClusterDesiredSize:
+    Description: Desired size of the ECS Cluster
+    Type: Number
+    Default: "3"
+
+  InstanceType:
+    Description: ECS Node instance type
+    Type: String
+    Default: "m5.large"
+
+  AMI:
+    Description: Cluster node AMI
+    Type: String
+
+  Prefix:
+    Description: Client's trigram or prefix for resources
+    Type: String
+
+  Env:
+    Description: Environment (prd/prod/preprod/ppd/staging/...)
+    Type: String
+
+  DomainName:
+    Description: Domain name that will be use to create the monitoring endpoint (in Netdata), you need to create the DNS record or set the /etc/hosts file on Netdata slaves
+    Type: String
+
+#-------------------------------------------------------------------------------
+#--[ RESOURCES ]----------------------------------------------------------------
+#-------------------------------------------------------------------------------
+
+Resources:
+
+  Route53InternalZone:
+    Type: "AWS::Route53::HostedZone"
+    Properties:
+      Name: !Sub ${Prefix}.${Env}.internal
+      VPCs:
+        - VPCId: { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-VPCid" } }
+          VPCRegion: !Ref "AWS::Region"
+
+  Route53WildcardARecord:
+    Type: "AWS::Route53::RecordSet"
+    Properties:
+      HostedZoneId: !Ref Route53InternalZone
+      AliasTarget:
+        DNSName: !GetAtt LoadBalancerInternal.DNSName
+        HostedZoneId: !GetAtt LoadBalancerInternal.CanonicalHostedZoneID
+      Name: !Sub "*.${Prefix}.${Env}.internal."
+      Type: A
+
+  Route53WildcardAAAARecord:
+    Type: "AWS::Route53::RecordSet"
+    Properties:
+      HostedZoneId: !Ref Route53InternalZone
+      AliasTarget:
+        DNSName: !GetAtt LoadBalancerInternal.DNSName
+        HostedZoneId: !GetAtt LoadBalancerInternal.CanonicalHostedZoneID
+      Name: !Sub "*.${Prefix}.${Env}.internal."
+      Type: AAAA
+
+  ELBSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: ELB Security Group
+      VpcId: { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-VPCid" } }
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub sg-elb-${Prefix}-${Env}-ecs
+
+#--[ ALB ]----------------------------------------------------------------------
+
+  # ELBv2
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${Prefix}-${Env}-ecs-elb
+      Subnets:
+        - { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-PublicSubnet1" } }
+        - { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-PublicSubnet2" } }
+        - { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-PublicSubnet3" } }
+      SecurityGroups:
+        - !Ref ELBSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-ecs-elb
+        - Key: Env
+          Value: !Ref Env
+
+  # Listner (port 80)
+  LoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref DefaultTargetGroup
+
+  # Listner (port 443)
+  #  LoadBalancerListenerHTTPS:
+  #    Type: AWS::ElasticLoadBalancingV2::Listener
+  #    Properties:
+  #      LoadBalancerArn: !Ref LoadBalancer
+  #      Port: 443
+  #      Protocol: HTTPS
+  #      Certificates:
+  #        - CertificateArn: "arn:aws:acm:eu-west-1:<...>"
+  #      DefaultActions:
+  #        - Type: forward
+  #          TargetGroupArn: !Ref DefaultTargetGroup
+
+  # We define a default target group here, as this is a mandatory Parameters
+  # when creating an Application Load Balancer Listener. This is not used, instead
+  # a target group is created per-service in each service template (../services/*)
+  DefaultTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: default
+      VpcId: { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-VPCid" } }
+      Port: 80
+      Protocol: HTTP
+
+#--[ NLB ]----------------------------------------------------------------------
+
+  # ELBv2
+  LoadBalancerInternal:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internal
+      Type: network
+      Name: !Sub ${Prefix}-${Env}-ecs-elb-int
+      Subnets:
+        - { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-PrivateSubnet1" }}
+        - { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-PrivateSubnet2" }}
+        - { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-PrivateSubnet3" }}
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-ecs-elb-int
+        - Key: Env
+          Value: !Ref Env
+
+  # Listner (port 80)
+  LoadBalancerListenerInternal:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancerInternal
+      Port: 80
+      Protocol: TCP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref DefaultTargetGroupInternal
+
+  # We define a default target group here, as this is a mandatory Parameters
+  # when creating an Network Load Balancer Listener. This is not used, instead
+  # a target group is created per-service in each service template (../services/*)
+  DefaultTargetGroupInternal:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: default-internal
+      VpcId: { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-VPCid" } }
+      Port: 80
+      Protocol: TCP
+
+#--[ ECS ]----------------------------------------------------------------------
+
+  # ECS Cluster
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub ${Prefix}-${Env}-ecs-cluster
+
+  ECSNodeSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: ECS node security group
+      VpcId: { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-VPCid" } }
+      SecurityGroupIngress:
+        - IpProtocol: -1
+          CidrIp: 10.0.0.0/16
+      Tags:
+        - Key: Name
+          Value: !Sub ecs-node-sg
+
+  # AutoScaling Group
+  ECSAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+        - { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-PrivateSubnet1" }}
+        - { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-PrivateSubnet2" }}
+        - { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-PrivateSubnet3" }}
+      LaunchConfigurationName: !Ref ECSLaunchConfiguration
+      MinSize: !Ref ClusterMinSize
+      MaxSize: !Ref ClusterMaxSize
+      DesiredCapacity: !Ref ClusterDesiredSize
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-ecs-node
+          PropagateAtLaunch: true
+        - Key: Env
+          Value: prd
+          PropagateAtLaunch: true
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT15M
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MinInstancesInService: 1
+        MaxBatchSize: 1
+        PauseTime: PT2M
+        WaitOnResourceSignals: true
+
+  # Scaling Policy
+  ScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref ECSAutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: 80
+
+  # Launch Configuration
+  ECSLaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: !Ref AMI
+      InstanceType: !Ref InstanceType
+      SecurityGroups:
+        - !Ref DefaultSecurityGroup
+        - !Ref ECSNodeSecurityGroup
+        - !Ref ELBSecurityGroup
+      IamInstanceProfile: !Ref ECSInstanceProfile
+      KeyName: { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-KeyName" } }
+      UserData:
+        "Fn::Base64": !Sub |
+          #!/bin/bash
+          yum install -y aws-cfn-bootstrap
+          /opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSLaunchConfiguration
+          /opt/aws/bin/cfn-signal -e $? --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSAutoScalingGroup
+    Metadata:
+      AWS::CloudFormation::Init:
+        config:
+          commands:
+            01_add_instance_to_cluster:
+              command: !Sub echo ECS_CLUSTER=${ECSCluster} >> /etc/ecs/ecs.config
+            02_change_ulimit:
+              command: echo OPTIONS=\"--default-ulimit nofile=1024000:1024000\" >> /etc/sysconfig/docker
+            03_download_netdata:
+              command: curl https://my-netdata.io/kickstart-static64.sh >/tmp/kickstart-static64.sh
+            04_install_netdata:
+              command: sh /tmp/kickstart-static64.sh --dont-wait
+          packages:
+            rpm:
+              ssm: !Sub https://s3-${AWS::Region}.amazonaws.com/amazon-ssm-${AWS::Region}/latest/linux_amd64/amazon-ssm-agent.rpm
+          files:
+            "/etc/cfn/cfn-hup.conf":
+              mode: 000400
+              owner: root
+              group: root
+              content: !Sub |
+                [main]
+                stack=${AWS::StackId}
+                region=${AWS::Region}
+            "/etc/cfn/hooks.d/cfn-auto-reloader.conf":
+              content: !Sub |
+                [cfn-auto-reloader-hook]
+                triggers=post.update
+                path=Resources.ECSLaunchConfiguration.Metadata.AWS::CloudFormation::Init
+                action=/opt/aws/bin/cfn-init -v --region ${AWS::Region} --stack ${AWS::StackName} --resource ECSLaunchConfiguration
+            "/opt/netdata/etc/netdata/netdata.conf":
+              content: !Sub |
+                [global]
+                  memory mode = none
+                [health]
+                  enabled = no
+            "/opt/netdata/etc/netdata/stream.conf":
+              content:
+                Fn::Sub:
+                  - |
+                    [stream]
+                      enabled = yes
+                      destination = monitoring.${DomainName}
+                      api key = ${NetdataUUID}
+                  - NetdataUUID: { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-NetdataUUID" } }
+          services:
+            sysvinit:
+              docker:
+                commands:
+                  - 02_change_ulimit
+              cfn-hup:
+                enabled: true
+                ensureRunning: true
+                files:
+                  - /etc/cfn/cfn-hup.conf
+                  - /etc/cfn/hooks.d/cfn-auto-reloader.conf
+              netdata:
+                enabled: true
+                ensureRunning: true
+                files:
+                  - /opt/netdata/etc/netdata/netdata.conf
+                  - /opt/netdata/etc/netdata/stream.conf
+
+
+  # IAM Role
+  ECSRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      RoleName: !Sub ${Prefix}-${Env}-ecs-node
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Action: "sts:AssumeRole"
+          Principal:
+            Service: "ec2.amazonaws.com"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
+        - "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
+
+  # Instance Profile
+  ECSInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref ECSRole
+
+  DefaultSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: Default Security Group
+      VpcId: { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-VPCid" } }
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-BastionSG" } }
+      Tags:
+        - Key: Name
+          Value: sg-default
+
+#-------------------------------------------------------------------------------
+#--[ OUTPUTS ]------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+Outputs:
+  Cluster:
+    Description: A reference to the ECS cluster
+    Value: !Ref ECSCluster
+    Export:
+      Name: !Sub ${Prefix}-${Env}-ECSClusterName
+
+  LoadBalancer:
+    Description: A reference to the Application Load Balancer
+    Value: !Ref LoadBalancer
+
+  LoadBalancerUrl:
+    Description: The URL of the ALB
+    Value: !GetAtt LoadBalancer.DNSName
+
+  Listener:
+    Description: A reference to a port 80 listener
+    Value: !Ref LoadBalancerListener
+
+  LoadBalancerInternal:
+    Description: A reference to the Application Load Balancer
+    Value: !Ref LoadBalancerInternal
+
+  LoadBalancerInternalUrl:
+    Description: The URL of the ALB
+    Value: !GetAtt LoadBalancerInternal.DNSName
+
+  ListenerInternal:
+    Description: A reference to a port 80 listener
+    Value: !Ref LoadBalancerListenerInternal
