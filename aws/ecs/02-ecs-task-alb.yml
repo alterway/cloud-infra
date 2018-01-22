@@ -1,0 +1,240 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ECS Sample Task with ALB
+
+#----------------------------------------------------------------------------------------
+#--[ PARAMETRES ]------------------------------------------------------------------------
+#----------------------------------------------------------------------------------------
+Parameters:
+  MinCapacity:
+    Type: Number
+    Description: Minimum number of tasks to run in this service
+    Default: "1"
+  MaxCapacity:
+    Type: Number
+    Description: Maximum number of tasks to run in this service
+    Default: "10"
+  ServiceName:
+    Type: String
+    Description: Service Name
+  Host:
+    Type: String
+    Description: Service DNS Name
+  Prefix:
+    Description: Client's trigram or prefix for resources
+    Type: String
+  Env:
+    Description: Environment (prd/prod/preprod/ppd/staging/...)
+    Type: String
+
+#-------------------------------------------------------------------------------
+#--[ RESOURCES ]----------------------------------------------------------------
+#-------------------------------------------------------------------------------
+Resources:
+  # Task
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${Prefix}-${Env}-${ServiceName}
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: !Sub ${Prefix}-${Env}-${ServiceName}
+          Essential: true
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepository}:prd
+          Memory: 1024
+          MemoryReservation: 128
+          PortMappings:
+            - ContainerPort: 80
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CloudWatchLogsGroup
+              awslogs-region: !Ref AWS::Region
+          Environment:
+            - Name: SAMPLE_ENV
+              Value: "Default"
+
+  # IAM Role
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument: |
+        {
+          "Statement": [{
+            "Action": "sts:AssumeRole",
+            "Effect": "Allow",
+            "Principal": { "Service": "ecs-tasks.amazonaws.com" }
+          }]
+        }
+
+  # Service
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - ListenerRule
+      - ListenerRuleHTTPS
+    Properties:
+      Cluster: { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-ECSClusterName" } }
+      ServiceName: !Sub ${Prefix}-${Env}-${ServiceName}
+      Role: ecsServiceRole
+      TaskDefinition: !Ref TaskDefinition
+      #DesiredCount: 1
+      LoadBalancers: 
+        - ContainerName: !Sub ${Prefix}-${Env}-${ServiceName}
+          ContainerPort: 80
+          TargetGroupArn: !Ref TargetGroup
+
+  # Repository ECR
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref ServiceName
+
+  # CloudWatch Logs
+  CloudWatchLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: !Sub /ecs/${Prefix}-${Env}-${ServiceName}
+      RetentionInDays: 7
+
+  # TargetGroup
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-VPCid" } }
+      Name: !Sub ${Prefix}-${Env}-${ServiceName}
+      Port: 80
+      Protocol: HTTP
+      Matcher:
+        HttpCode: "200,404,401"
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: /api/v1/healthcheck
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 10
+      Tags: 
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-${ServiceName}
+        - Key: Env
+          Value: !Sub ${Env}
+    
+  # ELB Rule
+  ListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: ""
+      Priority: 1
+      Conditions:
+        - Field: host-header
+          Values: 
+            - !Ref Host
+      Actions:
+        - TargetGroupArn: !Ref TargetGroup
+          Type: forward
+
+  ListenerRuleHTTPS:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: ""
+      Priority: 1
+      Conditions:
+        - Field: host-header
+          Values:
+            - !Ref Host
+      Actions:
+        - TargetGroupArn: !Ref TargetGroup
+          Type: forward
+
+  #--[ Application Auto Scaling ] -------------------------------------------------- 
+  #  # Scaling Target (our ECS Service)
+  #  ServiceScalingTarget:
+  #    Type: AWS::ApplicationAutoScaling::ScalableTarget
+  #    DependsOn: Service
+  #    Properties:
+  #      MaxCapacity: !Ref MaxCapacity
+  #      MinCapacity: !Ref MinCapacity
+  #      ResourceId: !Join ['', [service/, !ImportValue ECSClusterName, /, !GetAtt [Service, Name]]]
+  #      RoleARN: !ImportValue ECSAutoScalingRoleArn
+  #      ScalableDimension: ecs:service:DesiredCount
+  #      ServiceNamespace: ecs
+  #
+  #  # Scale Up and Scale Down policies
+  #  ServiceScaleUpPolicy:
+  #    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+  #    Properties:
+  #      PolicyName: ServiceScaleUpPolicy
+  #      PolicyType: StepScaling
+  #      ScalingTargetId: !Ref ServiceScalingTarget
+  #      StepScalingPolicyConfiguration:
+  #        AdjustmentType: ChangeInCapacity
+  #        Cooldown: 60
+  #        MetricAggregationType: Average
+  #        StepAdjustments:
+  #        - MetricIntervalLowerBound: 0
+  #          ScalingAdjustment: 1
+  #  ServiceScaleDownPolicy:
+  #    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+  #    Properties:
+  #      PolicyName: ServiceScaleDownPolicy
+  #      PolicyType: StepScaling
+  #      ScalingTargetId: !Ref ServiceScalingTarget
+  #      StepScalingPolicyConfiguration:
+  #        AdjustmentType: ChangeInCapacity
+  #        Cooldown: 60
+  #        MetricAggregationType: Average
+  #        StepAdjustments:
+  #        - MetricIntervalLowerBound: 0
+  #          ScalingAdjustment: -1          
+  #
+  #  # Scale Up and Scale Down alarms
+  #  CPUAlarmScaleUp:
+  #    Type: AWS::CloudWatch::Alarm
+  #    Properties:
+  #      EvaluationPeriods: '2'
+  #      Statistic: Average
+  #      Threshold: '70'
+  #      AlarmDescription: Alarm if our ECS Service CPU Utilization is above the threshold.
+  #      Period: '60'
+  #      AlarmActions:
+  #        - !Ref ServiceScaleUpPolicy
+  #      Namespace: AWS/ECS
+  #      Dimensions:
+  #        - Name: ServiceName
+  #          Value: !GetAtt Service.Name
+  #        - Name: ClusterName
+  #          Value: !ImportValue ECSClusterName
+  #      ComparisonOperator: GreaterThanThreshold
+  #      MetricName: CPUUtilization
+  #  CPUAlarmScaleDown:
+  #    Type: AWS::CloudWatch::Alarm
+  #    Properties:
+  #      EvaluationPeriods: '10'
+  #      Statistic: Average
+  #      Threshold: '40'
+  #      AlarmDescription: Alarm if our ECS Service CPU Utilization is below the threshold.
+  #      Period: '60'
+  #      AlarmActions:
+  #        - !Ref ServiceScaleDownPolicy
+  #      Namespace: AWS/ECS
+  #      Dimensions:
+  #        - Name: ServiceName
+  #          Value: !GetAtt Service.Name
+  #        - Name: ClusterName
+  #          Value: !ImportValue ECSClusterName
+  #      ComparisonOperator: LessThanOrEqualToThreshold
+  #      MetricName: CPUUtilization
+
+#----------------------------------------------------------------------------------------
+#--[ OUTPUTS ]---------------------------------------------------------------------------
+#----------------------------------------------------------------------------------------
+Outputs:
+  ServiceName:
+    Description: ECS Service Name
+    Value: !GetAtt Service.Name
+
+  ECRRepository:
+    Description: ECR Repository
+    Value: !Ref ECRRepository

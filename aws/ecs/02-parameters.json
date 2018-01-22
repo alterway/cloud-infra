@@ -1,0 +1,26 @@
+[
+  {
+    "ParameterKey": "MinCapacity",
+    "ParameterValue": "1"
+  },
+  {
+    "ParameterKey": "MaxCapacity",
+    "ParameterValue": "5"
+  },
+  {
+    "ParameterKey": "ServiceName",
+    "ParameterValue": "ServiceName"
+  },
+  {
+    "ParameterKey": "Host",
+    "ParameterValue": "Host"
+  },
+  {
+    "ParameterKey": "Prefix",
+    "ParameterValue": "Prefix"
+  },
+  {
+    "ParameterKey": "Env",
+    "ParameterValue": "prod"
+  }
+]
