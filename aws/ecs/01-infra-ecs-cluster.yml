@@ -326,7 +326,6 @@ Resources:
                   - /opt/netdata/etc/netdata/netdata.conf
                   - /opt/netdata/etc/netdata/stream.conf
 
-
   # IAM Role
   ECSRole:
     Type: AWS::IAM::Role
@@ -378,23 +377,35 @@ Outputs:
   LoadBalancer:
     Description: A reference to the Application Load Balancer
     Value: !Ref LoadBalancer
+    Export:
+      Name: !Sub ${Prefix}-${Env}-LoadBalancer
 
   LoadBalancerUrl:
     Description: The URL of the ALB
     Value: !GetAtt LoadBalancer.DNSName
+    Export:
+      Name: !Sub ${Prefix}-${Env}-LoadBalancerInternalUrl
 
   Listener:
     Description: A reference to a port 80 listener
     Value: !Ref LoadBalancerListener
+    Export:
+      Name: !Sub ${Prefix}-${Env}-Listener
 
   LoadBalancerInternal:
     Description: A reference to the Application Load Balancer
     Value: !Ref LoadBalancerInternal
+    Export:
+      Name: !Sub ${Prefix}-${Env}-LoadBalancerInternal
 
   LoadBalancerInternalUrl:
     Description: The URL of the ALB
     Value: !GetAtt LoadBalancerInternal.DNSName
+    Export:
+      Name: !Sub ${Prefix}-${Env}-LoadBalancerInternalUrl
 
   ListenerInternal:
     Description: A reference to a port 80 listener
     Value: !Ref LoadBalancerListenerInternal
+    Export:
+      Name: !Sub ${Prefix}-${Env}-ListenerInternal
