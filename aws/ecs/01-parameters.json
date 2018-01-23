@@ -16,19 +16,11 @@
     "ParameterValue": "m5.large"
   },
   {
-    "ParameterKey": "AMI",
-    "ParameterValue": "ami-1d46df64"
-  },
-  {
     "ParameterKey": "Prefix",
     "ParameterValue": "Prefix"
   },
   {
     "ParameterKey": "Env",
     "ParameterValue": "prod"
-  },
-  {
-    "ParameterKey": "DomainName",
-    "ParameterValue": "domainname.io"
   }
 ]

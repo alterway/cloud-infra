@@ -26,10 +26,6 @@ Parameters:
     Type: String
     Default: "m5.large"
 
-  AMI:
-    Description: Cluster node AMI
-    Type: String
-
   Prefix:
     Description: Client's trigram or prefix for resources
     Type: String
@@ -38,9 +34,42 @@ Parameters:
     Description: Environment (prd/prod/preprod/ppd/staging/...)
     Type: String
 
-  DomainName:
-    Description: Domain name that will be use to create the monitoring endpoint (in Netdata), you need to create the DNS record or set the /etc/hosts file on Netdata slaves
-    Type: String
+#-------------------------------------------------------------------------------
+#--[ MAPPINGS ]-----------------------------------------------------------------
+#-------------------------------------------------------------------------------
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      "ECS": "ami-28456852"
+    us-east-2:
+      "ECS": "ami-ce1c36ab"
+    us-west-1:
+      "ECS": "ami-74262414"
+    us-west-2:
+      "ECS": "ami-decc7fa6"
+    eu-central-1:
+      "ECS": "ami-509a053f"
+    eu-west-1:
+      "ECS": "ami-1d46df64"
+    eu-west-2:
+      "ECS": "ami-67cbd003"
+    eu-west-3:
+      "ECS": "ami-9aef59e7"
+    ap-northeast-1:
+      "ECS": "ami-872c4ae1"
+    ap-northeast-2:
+      "ECS": "ami-c212b2ac"
+    ap-southeast-1:
+      "ECS": "ami-910d72ed"
+    ap-southeast-2:
+      "ECS": "ami-58bb443a"
+    ca-central-1:
+      "ECS": "ami-435bde27"
+    ap-south-1:
+      "ECS": "ami-00491f6f"
+    sa-east-1:
+      "ECS": "ami-af521fc3"
 
 #-------------------------------------------------------------------------------
 #--[ RESOURCES ]----------------------------------------------------------------
@@ -249,7 +278,7 @@ Resources:
   ECSLaunchConfiguration:
     Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
-      ImageId: !Ref AMI
+      ImageId: !FindInMap [ RegionMap, !Ref "AWS::Region", "ECS" ]
       InstanceType: !Ref InstanceType
       SecurityGroups:
         - !Ref DefaultSecurityGroup
@@ -271,9 +300,15 @@ Resources:
               command: !Sub echo ECS_CLUSTER=${ECSCluster} >> /etc/ecs/ecs.config
             02_change_ulimit:
               command: echo OPTIONS=\"--default-ulimit nofile=1024000:1024000\" >> /etc/sysconfig/docker
-            03_download_netdata:
+            03_add_adm-host_for_netdata_stream:
+              command:
+                Fn::Sub:
+                  - |
+                    echo \"adm-host ${BastionPrivateLoadBalancerDNS}\" >> /etc/hosts
+                  - BastionPrivateLoadBalancerDNS: { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-BastionPrivateIp" } }
+            04_download_netdata:
               command: curl https://my-netdata.io/kickstart-static64.sh >/tmp/kickstart-static64.sh
-            04_install_netdata:
+            05_install_netdata:
               command: sh /tmp/kickstart-static64.sh --dont-wait
           packages:
             rpm:
@@ -305,7 +340,7 @@ Resources:
                   - |
                     [stream]
                       enabled = yes
-                      destination = monitoring.${DomainName}
+                      destination = adm-host
                       api key = ${NetdataUUID}
                   - NetdataUUID: { "Fn::ImportValue" : {"Fn::Sub": "${Prefix}-${Env}-NetdataUUID" } }
           services:
