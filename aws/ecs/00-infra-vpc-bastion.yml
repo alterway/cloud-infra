@@ -436,6 +436,7 @@ Resources:
     Properties:
       ImageId: !Ref AMI
       KeyName: !Ref KeyName
+      InstanceType: !Ref InstanceType
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
           Ebs:
