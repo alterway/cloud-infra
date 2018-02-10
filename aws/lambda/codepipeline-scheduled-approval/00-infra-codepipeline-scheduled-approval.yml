@@ -32,71 +32,71 @@ Parameters:
 
 Resources:
   LambdaFunction:
-		Type: "AWS::Lambda::Function"
-		Properties:
-		  Code:
-  	    ZipFile:
-  	      { "Fn::Join: [
-  	        "\n", [
-  	          var AWS = require('aws-sdk');
-  	          exports.handler = (event, context, callback) => {
-  	            var paramsGet = {
-  	              name: "$PIPELINE_NAME"
-  	            };
-  	            var codepipeline = new AWS.CodePipeline();
-  	            codepipeline.getPipelineState(paramsGet, function(err, data) {
-  	              if (err) console.log(err, err.stack);
-  	              else {
-  	                if (data.stageStates.length > 0) {
-  	                  var token = null;
-  	                  for (let stage of data.stageStates) {
-  	                    var stageName = stage.stageName;
-  	                    if (stageName === "$STAGE_NAME") {
-  	                      var actionStates = stage.actionStates;
-  	                      for (let actionState of actionStates) {
-  	                        var actionName = actionState.actionName;
-  	                        if (actionName === "$APPROVAL_NAME") {
-  	                          token = actionState.latestExecution.token;
-  	                          break;
-  	                        }
-  	                      }
-  	                    }
-  	                  }
-  	                  var paramsPut = {
-  	                    actionName: "$APPROVAL_NAME",
-  	                    pipelineName: "$PIPELINE_NAME",
-  	                    result: {
-  	                      status: "Approved",
-  	                      summary: "Scheduled approval by Lambda."
-  	                    },
-  	                    stageName: "$STAGE_NAME",
-  	                    token: token
-  	                  };
-  	                  if (token != null) {
-  	                    codepipeline.putApprovalResult(paramsPut, function(err, data) {
-  	                      if (err) console.log(err, err.stack);
-  	                      else console.log(data);
-  	                    });
-  	                  }
-  	                }
-  	              }
-  	              callback(null, "Approved");
-  	            })
-  	          };
-  	        ]
-  	      }
-		  Description: Automatic CodePipeline Approval
-		  Environment:
-  	    - Name: PIPELINE_NAME
-  	      Value: !Ref PipelineName
-  	    - Name: STAGE_NAME
-  	      Value: !Ref StageName
-  	    - Name: APPROVAL_NAME
-  	      Value: !Ref ApprovalName
-		  FunctionName: String
-		  Handler: "index.handler"
-		  Role: !GettAtt LambdaAutoApprovalServiceRole.Arn
-		  Runtime: nodejs6.10
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Code:
+        ZipFile:
+          { "Fn::Join: [
+            "\n", [
+              var AWS = require('aws-sdk');
+              exports.handler = (event, context, callback) => {
+                var paramsGet = {
+                  name: "$PIPELINE_NAME"
+                };
+                var codepipeline = new AWS.CodePipeline();
+                codepipeline.getPipelineState(paramsGet, function(err, data) {
+                  if (err) console.log(err, err.stack);
+                  else {
+                    if (data.stageStates.length > 0) {
+                      var token = null;
+                      for (let stage of data.stageStates) {
+                        var stageName = stage.stageName;
+                        if (stageName === "$STAGE_NAME") {
+                          var actionStates = stage.actionStates;
+                          for (let actionState of actionStates) {
+                            var actionName = actionState.actionName;
+                            if (actionName === "$APPROVAL_NAME") {
+                              token = actionState.latestExecution.token;
+                              break;
+                            }
+                          }
+                        }
+                      }
+                      var paramsPut = {
+                        actionName: "$APPROVAL_NAME",
+                        pipelineName: "$PIPELINE_NAME",
+                        result: {
+                          status: "Approved",
+                          summary: "Scheduled approval by Lambda."
+                        },
+                        stageName: "$STAGE_NAME",
+                        token: token
+                      };
+                      if (token != null) {
+                        codepipeline.putApprovalResult(paramsPut, function(err, data) {
+                          if (err) console.log(err, err.stack);
+                          else console.log(data);
+                        });
+                      }
+                    }
+                  }
+                  callback(null, "Approved");
+                })
+              };
+            ]
+          }
+      Description: Automatic CodePipeline Approval
+      Environment:
+        - Name: PIPELINE_NAME
+          Value: !Ref PipelineName
+        - Name: STAGE_NAME
+          Value: !Ref StageName
+        - Name: APPROVAL_NAME
+          Value: !Ref ApprovalName
+      FunctionName: String
+      Handler: "index.handler"
+      Role: !GettAtt LambdaAutoApprovalServiceRole.Arn
+      Runtime: nodejs6.10
 
   LambdaAutoApprovalServiceRole:
     Type: AWS::IAM::Role
@@ -130,29 +130,29 @@ Resources:
           ]
         }
 
-	ScheduledRule: 
-	  Type: AWS::Events::Rule
-	  Properties: 
-	    Description: Scheduled CodePipeline approval
-	    ScheduleExpression: "cron(0 9 ? * MON *)"
-	    State: ENABLED
-	    Targets: 
-	      - 
-	        Arn: 
-	          Fn::GetAtt: 
-	            - "LambdaFunction"
-	            - "Arn"
-	        Id: LambdaAutomaticApproval
-	PermissionForEventsToInvokeLambda: 
-	  Type: AWS::Lambda::Permission
-	  Properties: 
-	    FunctionName: !Ref LambdaFunction
-	    Action: lambda:InvokeFunction
-	    Principal: events.amazonaws.com
-	    SourceArn: 
-	      Fn::GetAtt: 
-	        - "ScheduledRule"
-	        - "Arn"
+  ScheduledRule: 
+    Type: AWS::Events::Rule
+    Properties: 
+      Description: Scheduled CodePipeline approval
+      ScheduleExpression: "cron(0 9 ? * MON *)"
+      State: ENABLED
+      Targets: 
+        - 
+          Arn: 
+            Fn::GetAtt: 
+              - "LambdaFunction"
+              - "Arn"
+          Id: LambdaAutomaticApproval
+  PermissionForEventsToInvokeLambda: 
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: !Ref LambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: 
+        Fn::GetAtt: 
+          - "ScheduledRule"
+          - "Arn"
 
 #-------------------------------------------------------------------------------
 #--[ OUTPUTS/EXPORT ]-----------------------------------------------------------
