@@ -36,66 +36,62 @@ Resources:
     Properties:
       Code:
         ZipFile:
-          { "Fn::Join: [
-            "\n", [
-              var AWS = require('aws-sdk');
-              exports.handler = (event, context, callback) => {
-                var paramsGet = {
-                  name: "$PIPELINE_NAME"
-                };
-                var codepipeline = new AWS.CodePipeline();
-                codepipeline.getPipelineState(paramsGet, function(err, data) {
-                  if (err) console.log(err, err.stack);
-                  else {
-                    if (data.stageStates.length > 0) {
-                      var token = null;
-                      for (let stage of data.stageStates) {
-                        var stageName = stage.stageName;
-                        if (stageName === "$STAGE_NAME") {
-                          var actionStates = stage.actionStates;
-                          for (let actionState of actionStates) {
-                            var actionName = actionState.actionName;
-                            if (actionName === "$APPROVAL_NAME") {
-                              token = actionState.latestExecution.token;
-                              break;
-                            }
-                          }
-                        }
-                      }
-                      var paramsPut = {
-                        actionName: "$APPROVAL_NAME",
-                        pipelineName: "$PIPELINE_NAME",
-                        result: {
-                          status: "Approved",
-                          summary: "Scheduled approval by Lambda."
-                        },
-                        stageName: "$STAGE_NAME",
-                        token: token
-                      };
-                      if (token != null) {
-                        codepipeline.putApprovalResult(paramsPut, function(err, data) {
-                          if (err) console.log(err, err.stack);
-                          else console.log(data);
-                        });
-                      }
-                    }
-                  }
-                  callback(null, "Approved");
-                })
-              };
-            ]
-          }
+          !Join
+            - ' '
+            - - 'var AWS = require("aws-sdk");'
+              - 'exports.handler = (event, context, callback) => {'
+              - '  var paramsGet = {'
+              - '    name: "$PIPELINE_NAME"'
+              - '  };'
+              - '  var codepipeline = new AWS.CodePipeline();'
+              - '  codepipeline.getPipelineState(paramsGet, function(err, data) {'
+              - '    if (err) console.log(err, err.stack);'
+              - '    else {'
+              - '      if (data.stageStates.length > 0) {'
+              - '        var token = null;'
+              - '        for (let stage of data.stageStates) {'
+              - '          var stageName = stage.stageName;'
+              - '          if (stageName === "$STAGE_NAME") {'
+              - '            var actionStates = stage.actionStates;'
+              - '            for (let actionState of actionStates) {'
+              - '              var actionName = actionState.actionName;'
+              - '              if (actionName === "$APPROVAL_NAME") {'
+              - '                token = actionState.latestExecution.token;'
+              - '                break;'
+              - '              }'
+              - '            }'
+              - '          }'
+              - '        }'
+              - '        var paramsPut = {'
+              - '          actionName: "$APPROVAL_NAME",'
+              - '          pipelineName: "$PIPELINE_NAME",'
+              - '          result: {'
+              - '            status: "Approved",'
+              - '            summary: "Scheduled approval by Lambda."'
+              - '          },'
+              - '          stageName: "$STAGE_NAME",'
+              - '          token: token'
+              - '        };'
+              - '        if (token != null) {'
+              - '          codepipeline.putApprovalResult(paramsPut, function(err, data) {'
+              - '            if (err) console.log(err, err.stack);'
+              - '            else console.log(data);'
+              - '          });'
+              - '        }'
+              - '      }'
+              - '    }'
+              - '    callback(null, "Approved");'
+              - '  })'
+              - '};'
       Description: Automatic CodePipeline Approval
       Environment:
-        - Name: PIPELINE_NAME
-          Value: !Ref PipelineName
-        - Name: STAGE_NAME
-          Value: !Ref StageName
-        - Name: APPROVAL_NAME
-          Value: !Ref ApprovalName
-      FunctionName: String
+        Variables:
+          PIPELINE_NAME: !Ref PipelineName
+          STAGE_NAME: !Ref StageName
+          APPROVAL_NAME: !Ref ApprovalName
+      FunctionName: AutomaticCodePipelineApproval
       Handler: "index.handler"
-      Role: !GettAtt LambdaAutoApprovalServiceRole.Arn
+      Role: !GetAtt LambdaAutoApprovalServiceRole.Arn
       Runtime: nodejs6.10
 
   LambdaAutoApprovalServiceRole:
@@ -104,53 +100,55 @@ Resources:
       Path: /
       AssumeRolePolicyDocument: |
         {
-          "Version": "2012-10-17",
-          "Statement": [
-            {
-              "Effect": "Allow",
-              "Action": [
-                "logs:CreateLogGroup",
-                "logs:CreateLogStream",
-                "logs:PutLogEvents"
-              ],
-              "Resource": "arn:aws:logs:*:*:*"
-            },
-            {
-              "Action": [
-                "codepipeline:GetPipeline",
-                "codepipeline:GetPipelineState",
-                "codepipeline:GetPipelineExecution",
-                "codepipeline:ListPipelineExecutions",
-                "codepipeline:ListPipelines",
-                "codepipeline:PutApprovalResult"
-              ],
-              "Effect": "Allow",
-              "Resource": "*"
-            }
-          ]
+            "Statement": [{
+                "Effect": "Allow",
+                "Principal": { "Service": [ "lambda.amazonaws.com" ]},
+                "Action": [ "sts:AssumeRole" ]
+            }]
         }
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource:
+                  - arn:aws:logs:*:*:*
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - codepipeline:GetPipeline
+                  - codepipeline:GetPipelineState
+                  - codepipeline:GetPipelineExecution
+                  - codepipeline:ListPipelineExecutions
+                  - codepipeline:ListPipelines
+                  - codepipeline:PutApprovalResult
 
-  ScheduledRule: 
+  ScheduledRule:
     Type: AWS::Events::Rule
-    Properties: 
+    Properties:
       Description: Scheduled CodePipeline approval
       ScheduleExpression: "cron(0 9 ? * MON *)"
       State: ENABLED
-      Targets: 
-        - 
-          Arn: 
-            Fn::GetAtt: 
+      Targets:
+        -
+          Arn:
+            Fn::GetAtt:
               - "LambdaFunction"
               - "Arn"
           Id: LambdaAutomaticApproval
-  PermissionForEventsToInvokeLambda: 
+  PermissionForEventsToInvokeLambda:
     Type: AWS::Lambda::Permission
-    Properties: 
+    Properties:
       FunctionName: !Ref LambdaFunction
       Action: lambda:InvokeFunction
       Principal: events.amazonaws.com
-      SourceArn: 
-        Fn::GetAtt: 
+      SourceArn:
+        Fn::GetAtt:
           - "ScheduledRule"
           - "Arn"
 

@@ -1,0 +1,22 @@
+[
+  {
+    "ParameterKey": "PipelineName",
+    "ParameterValue": "PipelineName"
+  },
+  {
+    "ParameterKey": "StageName",
+    "ParameterValue": "StageName"
+  },
+  {
+    "ParameterKey": "Prefix",
+    "ParameterValue": "prfx"
+  },
+  {
+    "ParameterKey": "Env",
+    "ParameterValue": "prod"
+  },
+  {
+    "ParameterKey": "ApprovalName",
+    "ParameterValue": "ApprovalName"
+  }
+]
