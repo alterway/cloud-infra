@@ -2,7 +2,7 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: Cloudwatch event rule and Lambda function to trigger scheduled CodePipeline approval
 
 #-------------------------------------------------------------------------------
-#--[ PARAMETRES ]---------------------------------------------------------------
+#--[ PARAMETERS ]---------------------------------------------------------------
 #-------------------------------------------------------------------------------
 
 Parameters:
@@ -32,7 +32,7 @@ Parameters:
 
 Resources:
   LambdaFunction:
-    Type: "AWS::Lambda::Function"
+    Type: AWS::Lambda::Function
     Properties:
       Code:
         ZipFile:
@@ -155,14 +155,15 @@ Resources:
 #-------------------------------------------------------------------------------
 
 Outputs:
-  Env:
-    Description: Env
-    Value: !Ref Env
+  LambdaFunctionName:
+    Description: Name of Lambda AutoApproval function
+    Value: !Ref LambdaFunction
     Export:
-      Name: !Sub ${Prefix}-Env
+      Name: !Sub ${Prefix}-${Env}-auto-approve-name
 
-  Prefix:
-    Description: Env
-    Value: !Ref Prefix
+  LambdaFunctionArn:
+    Description: ARN of Lambda AutoApproval function
+    Value: !GetAtt LambdaFunction.Arn
     Export:
-      Name: !Sub ${Prefix}-Prefix
+      Name: !Sub ${Prefix}-${Env}-auto-approve-arn
+
