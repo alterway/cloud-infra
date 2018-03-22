@@ -13,7 +13,7 @@ provider "kubernetes" {
 }
 
 resource "google_compute_network" "kubernetes_network" {
-  name                    = "${var.kubernetes_network_name}"
+  name                    = "${var.kubernetes_network_name}-${var.env}"
   auto_create_subnetworks = "true"
   project = "${var.project}"
 }
@@ -24,7 +24,7 @@ resource "google_container_cluster" "kubernetes_cluster" {
   additional_zones   = "${var.additional_zones}"
   min_master_version = "${var.min_master_version}"
   project            = "${var.project}"
-  network = "${google_compute_network.kubernetes_network.name}-${var.env}"
+  network = "${google_compute_network.kubernetes_network.name}"
 
   lifecycle {
     ignore_changes = ["node_pool"]
