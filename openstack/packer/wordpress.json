@@ -1,0 +1,20 @@
+{
+  "builders": [
+    {
+	  "domain_name": "Default",
+		"type": "openstack",
+		"ssh_username": "ubuntu",
+		"image_name": "demo",
+		"source_image": "89b67970-2294-4af3-88fb-79a08d33409c",
+		"flavor": "5bf7a69c-171a-43cd-835d-fdf02c5c6d8d",
+		"networks": ["f77f817c-f840-472e-9bfe-d64f4db063aa"],
+		"use_floating_ip": true
+    }
+	],
+  "provisioners": [
+    {
+      "type": "shell",
+      "script": "wordpress_install.sh"
+    }
+  ]
+}
