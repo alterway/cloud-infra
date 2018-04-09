@@ -5,13 +5,6 @@ terraform {
 provider "google" {
 }
 
-provider "kubernetes" {
-  host     = "https://${google_container_cluster.kubernetes_cluster.endpoint}"
-  client_certificate     = "${base64decode(google_container_cluster.kubernetes_cluster.master_auth.0.client_certificate)}"
-  client_key             = "${base64decode(google_container_cluster.kubernetes_cluster.master_auth.0.client_key)}"
-  cluster_ca_certificate = "${base64decode(google_container_cluster.kubernetes_cluster.master_auth.0.cluster_ca_certificate)}"
-}
-
 resource "google_compute_network" "kubernetes_network" {
   name                    = "${var.kubernetes_network_name}-${var.env}"
   auto_create_subnetworks = "true"
@@ -71,12 +64,6 @@ resource "google_container_node_pool" "default_pool" {
   autoscaling {
     min_node_count = "${var.min_node_count}"
     max_node_count = "${var.max_node_count}"
-  }
-}
-
-resource "kubernetes_namespace" "namespace" {
-  metadata {
-    name = "${var.env}"
   }
 }
 
