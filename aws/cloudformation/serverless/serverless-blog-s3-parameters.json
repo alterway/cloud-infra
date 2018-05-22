@@ -1,0 +1,43 @@
+[
+	{
+		"ParameterKey": "BucketName",
+		"ParameterValue": "hugoblog.osones.com"
+	},
+
+	{
+		"ParameterKey": "GitHubUser",
+		"ParameterValue": "Nandidier"
+	},
+
+	{
+		"ParameterKey": "BuildBucket",
+		"ParameterValue": "hugoblogbuild"
+	},
+
+	{
+		"ParameterKey": "GitHubBranch",
+		"ParameterValue": "master"
+	},
+
+	{
+		"ParameterKey": "GitHubRepo",
+		"ParameterValue": "blog_hugo_osones"
+	},
+
+	{
+		"ParameterKey": "GitHubToken",
+		"ParameterValue": "8773710fe4e042f9248c9d4d9c4d22960669ede2"
+	},
+
+	{
+		"ParameterKey": "AcmCertificateArn", 
+		"ParameterValue": "arn:aws:acm:us-east-1:026895616857:certificate/c19b5b29-1cdd-4508-b60f-3e5adfa962ad"
+	},
+
+        { 
+                "ParameterKey": "DomainName", 
+                "ParameterValue": "didier.osones.com"
+        }
+
+
+]
