@@ -183,8 +183,6 @@ Resources:
             Value: !Ref CacheControlMaxAge
           - Name: BRANCH
             Value: !Ref GitHubBranch
-            #          - Name: SLACK_HOOK
-            #            Value: !Ref SlackHook
           - Name: REPO
             Value: !Ref GitHubRepo
           - Name: USER
