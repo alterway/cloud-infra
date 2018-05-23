@@ -59,7 +59,7 @@ Resources:
       BucketName: !Ref BucketName
       WebsiteConfiguration:
         IndexDocument: index.html
-        ErrorDocument: 404.html
+        ErrorDocument: error.html
     DeletionPolicy: Retain
 
   S3BuildBucket:
@@ -67,7 +67,7 @@ Resources:
     Properties:
       BucketName: !Ref BuildBucket
 
-  SampleBucketPolicy: 
+  WebsiteBucketPolicy: 
     Type: AWS::S3::BucketPolicy
     Properties: 
       Bucket: !Ref S3WebsiteBucket
@@ -157,11 +157,9 @@ Resources:
                 Action:
                   - codebuild:StartBuild
                   - codebuild:BatchGetBuilds
-                  - codedeploy:*
-                  - cloudformation:*
 
 
-#--[ CodeBuild Production ]--------------------------------------------------------
+#--[ CodeBuild ]--------------------------------------------------------
   
   CodeBuild:
     Type: AWS::CodeBuild::Project
@@ -234,16 +232,14 @@ Resources:
 
 #--[ Content delivery ]--------------------------------------------------
   
-  CloudFront:
+  CloudfrontDistribution:
     Type: 'AWS::CloudFront::Distribution'
     Properties:
       DistributionConfig:
         Origins:
         - DomainName: !Select [2, !Split ["/", !GetAtt S3WebsiteBucket.WebsiteURL]]
-          Id: S3Redirection
+          Id: S3Website
           CustomOriginConfig:
-            HTTPPort: '80'
-            HTTPSPort: '443'
             OriginProtocolPolicy: http-only
         Enabled: true
         HttpVersion: 'http2'
@@ -253,7 +249,7 @@ Resources:
         DefaultCacheBehavior:
           AllowedMethods: ["HEAD", "GET"]
           Compress: false
-          TargetOriginId: S3Redirection
+          TargetOriginId: S3Website
           ForwardedValues:
             QueryString: 'true'
           ViewerProtocolPolicy: redirect-to-https
@@ -265,13 +261,13 @@ Resources:
   DNSRecordSet:          
     Type: "AWS::Route53::RecordSet"
     Properties: 
+      AliasTarget:
+        DNSName: !GetAtt CloudfrontDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
       Comment: Recordset to the cloudfront distribution
       HostedZoneName: !Join ['',[!Ref DomainName,'.']]
       Name: !Join ['', ['hugoblog.', !Ref DomainName]]
-      ResourceRecords:
-        - !GetAtt CloudFront.DomainName
-      TTL: '30'
-      Type: CNAME
+      Type: A
 
 
 #----------------------------------------------------------------------------------------------
