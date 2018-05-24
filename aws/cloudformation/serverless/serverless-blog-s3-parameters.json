@@ -1,0 +1,43 @@
+[
+	{
+		"ParameterKey": "BucketName",
+		"ParameterValue": "YourWebsiteBucketName"
+	},
+
+	{
+		"ParameterKey": "GitHubUser",
+		"ParameterValue": "GithubUserName"
+	},
+
+	{
+		"ParameterKey": "BuildBucket",
+		"ParameterValue": "YourBuildBucket"
+	},
+
+	{
+		"ParameterKey": "GitHubBranch",
+		"ParameterValue": "YourGithubBranch"
+	},
+
+	{
+		"ParameterKey": "GitHubRepo",
+		"ParameterValue": "YourRepo"
+	},
+
+	{
+		"ParameterKey": "GitHubToken",
+		"ParameterValue": "YourGithubToken"
+	},
+
+	{
+		"ParameterKey": "AcmCertificateArn", 
+		"ParameterValue": "YourCertificateArn"
+	},
+
+        { 
+                "ParameterKey": "DomainName", 
+                "ParameterValue": "YourRootDomainName"
+        }
+
+
+]
