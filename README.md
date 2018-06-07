@@ -7,7 +7,8 @@ Infrastructure templates for various providers with various tooling.
 Cloudformation Templates for AWS:
 
 - [AWS/ECS](./aws/cloudformation/ecs)
-- [AWS/LAMBDA](./aws/cloudformation/lambda)
+- [AWS/Serverless/Lambda](./aws/cloudformation/serverless/lambda)
+- [AWS/Serverless/Blog](./aws/cloudformation/serverless/blog)
 
 ## GCP
 
