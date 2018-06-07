@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Managed Kubernetes cluster (EKS)
+
+#-------------------------------------------------------------------------------
+#--[ PARAMETERS ]---------------------------------------------------------------
+#-------------------------------------------------------------------------------
+
+Parameters:
+  ClusterName:
+    Description: Name for the Kubernetes cluster
+    Type: String
+
+  Env:
+    Description: Environment for the stacks (dev/staging/prod)
+    Type: String
+    AllowedValues:
+      - "dev"
+      - "prod"
+      - "staging"
+
+  Project:
+    Description: Project name to set for all resources
+    Type: String
+
+  PrivateSubnets:
+    Description: List of private subnets where to deploy the Kubernetes cluster
+    Type: List<AWS::EC2::Subnet::Id>
+
+  VpcId:
+    Description: VPC ID where to put the resources
+    Type: AWS::EC2::VPC::Id
+
+#-------------------------------------------------------------------------------
+#--[ RESOURCES ]----------------------------------------------------------------
+#-------------------------------------------------------------------------------
+
+Resources:
+  EksCluster:
+    Type: AWS::EKS::Cluster
+    Properties:
+      Name: !Sub ${Project}-${Env}-${ClusterName}
+      Version: 1.10
+      RoleArn: !GetAtt ClusterServiceRole.Arn
+      ResourcesVpcConfig:
+        SecurityGroupIds: !Ref ClusterSG
+        SubnetIds: !Ref PrivateSubnets
+
+  AWSServiceRoleForAmazonEKS:
+    Type: AWS::IAM:Role
+    Properties:
+      AssumeRolePolicyDocument: |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "eks.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        }
+      Path: /
+      ManagedPolicyArns:
+        -  arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+        -  arn:aws:iam::aws:policy/AmazonEKSServicePolicy
+
+  ControlPlaneSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Managed by CloudFormation
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref WorkersSG
+      Tags:
+        - Key: Name
+          Value: eks-controlplane
+        - Key: Env
+          Value: !Ref Env
+        - Key: Project
+          Value: !Ref Project
+    DependsOn: WorkersSG
+
+  WorkersSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Managed by CloudFormation
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: eks-workers
+        - Key: Env
+          Value: !Ref Env
+        - Key: Project
+          Value: !Ref Project
+
+  WorkersIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Created by CloudFormation
+      IpProtocole: tcp
+      FromPort: 1025
+      ToPort: 65535
+      GroupId: !Ref ControlPlaneSG
+    DependsOn: ControlPlaneSG
