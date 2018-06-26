@@ -39,10 +39,11 @@ Resources:
     Type: AWS::EKS::Cluster
     Properties:
       Name: !Sub ${Project}-${Env}-${ClusterName}
-      Version: 1.10
-      RoleArn: !GetAtt ClusterServiceRole.Arn
+      Version: '1.10'
+      RoleArn: !GetAtt AWSServiceRoleForAmazonEKS.Arn
       ResourcesVpcConfig:
-        SecurityGroupIds: !Ref ClusterSG
+        SecurityGroupIds:
+          - !Ref ControlPlaneSG
         SubnetIds: !Ref PrivateSubnets
 
   AWSServiceRoleForAmazonEKS:
@@ -102,7 +103,7 @@ Resources:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
       Description: Created by CloudFormation
-      IpProtocole: tcp
+      IpProtocol: tcp
       FromPort: 1025
       ToPort: 65535
       GroupId: !Ref ControlPlaneSG
