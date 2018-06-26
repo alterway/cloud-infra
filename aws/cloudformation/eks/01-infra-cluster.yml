@@ -46,7 +46,7 @@ Resources:
         SubnetIds: !Ref PrivateSubnets
 
   AWSServiceRoleForAmazonEKS:
-    Type: AWS::IAM:Role
+    Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument: |
         {
