@@ -5,7 +5,19 @@ terragrunt = {
 
   terraform {
     source = "github.com/osones/cloud-infra.git//aws/terraform/modules/eks"
+
+    after_hook "kubeconfig" {
+      commands = ["apply"]
+      execute = ["bash","-c","terraform output kubeconfig 2>/dev/null > ${get_tfvars_dir()}/kubeconfig"]
+    }
+    after_hook "configmap" {
+      commands = ["apply"]
+      execute = ["bash","-c","terraform output config_map_aws_auth 2>/dev/null | kubectl --kubeconfig ${get_tfvars_dir()}/kubeconfig apply -f -"]
+
+    }
+
   }
+
 }
 
 //
