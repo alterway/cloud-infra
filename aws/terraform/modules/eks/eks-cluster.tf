@@ -84,12 +84,4 @@ resource "aws_eks_cluster" "eks" {
     "aws_iam_role_policy_attachment.eks-cluster-AmazonEKSClusterPolicy",
     "aws_iam_role_policy_attachment.eks-cluster-AmazonEKSServicePolicy",
   ]
-
-  provisioner "local-exec" {
-    command = "terragrunt output kubeconfig 2>/dev/null > kubeconfig"
-  }
-
-  provisioner "local-exec" {
-    command = "terragrunt output config_map_aws_auth 2>/dev/null | kubectl --kubeconfig kubeconfig apply -f"
-  }
 }

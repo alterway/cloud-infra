@@ -51,6 +51,48 @@ resource "aws_iam_role_policy" "eks-autoscaling" {
 POLICY
 }
 
+resource "aws_iam_role_policy" "eks-route53-external-dns" {
+  name = "terraform-eks-node-route53-external-dns-${var.cluster-name}"
+  role = "${aws_iam_role.eks-node.name}"
+
+  policy = <<POLICY
+{
+ "Version": "2012-10-17",
+ "Statement": [
+   {
+     "Effect": "Allow",
+     "Action": [
+       "route53:ChangeResourceRecordSets"
+     ],
+     "Resource": [
+       "arn:aws:route53:::hostedzone/${aws_route53_zone.eks.zone_id}"
+     ]
+   },
+   {
+     "Effect": "Allow",
+     "Action": [
+       "route53:GetChange"
+     ],
+     "Resource": [
+       "arn:aws:route53:::change/*"
+     ]
+   },
+   {
+     "Effect": "Allow",
+     "Action": [
+       "route53:ListHostedZones",
+       "route53:ListResourceRecordSets",
+       "route53:ListHostedZonesByName"
+     ],
+     "Resource": [
+       "*"
+     ]
+   }
+ ]
+}
+POLICY
+}
+
 resource "aws_iam_role_policy_attachment" "eks-node-AmazonEKSWorkerNodePolicy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
   role       = "${aws_iam_role.eks-node.name}"
@@ -108,6 +150,16 @@ resource "aws_security_group_rule" "eks-node-ingress-cluster" {
   security_group_id        = "${aws_security_group.eks-node.id}"
   source_security_group_id = "${aws_security_group.eks-cluster.id}"
   to_port                  = 65535
+  type                     = "ingress"
+}
+
+resource "aws_security_group_rule" "eks-node-ingress-cluster" {
+  description              = "Allow worker Kubelets and pods to receive communication from the cluster control plane for metrics server"
+  from_port                = 443
+  protocol                 = "tcp"
+  security_group_id        = "${aws_security_group.eks-node.id}"
+  source_security_group_id = "${aws_security_group.eks-cluster.id}"
+  to_port                  = 443
   type                     = "ingress"
 }
 

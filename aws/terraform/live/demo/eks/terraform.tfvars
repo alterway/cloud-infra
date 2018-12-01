@@ -14,6 +14,12 @@ terragrunt = {
 aws-region = "eu-west-1"
 
 //
+// [dns]
+//
+domain_name = "domain.tld"
+subdomain_name = "subdomain.domain.tld"
+
+//
 // [kubernetes]
 //
 cluster-name = "staging"
