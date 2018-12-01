@@ -153,7 +153,7 @@ resource "aws_security_group_rule" "eks-node-ingress-cluster" {
   type                     = "ingress"
 }
 
-resource "aws_security_group_rule" "eks-node-ingress-cluster" {
+resource "aws_security_group_rule" "eks-node-ingress-cluster-443" {
   description              = "Allow worker Kubelets and pods to receive communication from the cluster control plane for metrics server"
   from_port                = 443
   protocol                 = "tcp"
