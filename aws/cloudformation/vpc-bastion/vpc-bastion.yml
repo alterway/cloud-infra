@@ -1,3 +1,4 @@
+---
 AWSTemplateFormatVersion: "2010-09-09"
 Description: VPC with public and private subnets and bastion host
 
@@ -8,37 +9,37 @@ Description: VPC with public and private subnets and bastion host
 Mappings:
   RegionMap:
     ap-northeast-1:
-      '64': ami-0f5356c6
+      '64': ami-0fd02119
     ap-northeast-2:
-      '64': ami-03a24f82
+      '64': ami-09656087
     ap-northeast-3:
-      '64': ami-0c193d1b
+      '64': ami-064d6dc9
     ap-south-1:
-      '64': ami-0b69d41a
+      '64': ami-01187fe5
     ap-southeast-1:
-      '64': ami-0ee8822a
+      '64': ami-0efb24bb
     ap-southeast-2:
-      '64': ami-0897c886
+      '64': ami-03932cb7
     ca-central-1:
-      '64': ami-0778348d
+      '64': ami-0388b9f8
     eu-central-1:
-      '64': ami-05d70fc9
+      '64': ami-080d06f9
     eu-west-1:
-      '64': ami-0bce8ef2
+      '64': ami-02790d1e
     eu-west-2:
-      '64': ami-0ffd3eec
+      '64': ami-06328f1e
     eu-west-3:
-      '64': ami-04789785
+      '64': ami-0697abcf
     sa-east-1:
-      '64': ami-01ce8cbe
+      '64': ami-04fb8967
     us-east-1:
-      '64': ami-0e29a67e
+      '64': ami-0d250574
     us-east-2:
-      '64': ami-0cbdb50e
+      '64': ami-0cf8cc36
     us-west-1:
-      '64': ami-0c57f53d
+      '64': ami-09c5eca7
     us-west-2:
-      '64': ami-09fa1b04
+      '64': ami-0f05ad41
 
 Parameters:
 
