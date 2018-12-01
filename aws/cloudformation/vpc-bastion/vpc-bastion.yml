@@ -1,0 +1,703 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: VPC with public and private subnets and bastion host
+
+#-----------------------------
+# [ PARAMETERS/MAPPINGS ]
+#-----------------------------
+
+Mappings:
+  RegionMap:
+    ap-northeast-1:
+      '64': ami-0f5356c6
+    ap-northeast-2:
+      '64': ami-03a24f82
+    ap-northeast-3:
+      '64': ami-0c193d1b
+    ap-south-1:
+      '64': ami-0b69d41a
+    ap-southeast-1:
+      '64': ami-0ee8822a
+    ap-southeast-2:
+      '64': ami-0897c886
+    ca-central-1:
+      '64': ami-0778348d
+    eu-central-1:
+      '64': ami-05d70fc9
+    eu-west-1:
+      '64': ami-0bce8ef2
+    eu-west-2:
+      '64': ami-0ffd3eec
+    eu-west-3:
+      '64': ami-04789785
+    sa-east-1:
+      '64': ami-01ce8cbe
+    us-east-1:
+      '64': ami-0e29a67e
+    us-east-2:
+      '64': ami-0cbdb50e
+    us-west-1:
+      '64': ami-0c57f53d
+    us-west-2:
+      '64': ami-09fa1b04
+
+Parameters:
+
+  Env:
+    Description: "Environment"
+    Type: String
+
+  InstanceType:
+    Description: "Bastion instance type"
+    Type: String
+    Default: t2.micro
+
+  KeyName:
+    Description: "SSH key name to access the bastion (must already exist)"
+    Type: String
+    Default: keypair
+
+  Prefix:
+    Description: "Prefix of all resources"
+    Type: String
+    Default: prefix
+
+  PrivateSubnetsCidr:
+    Description: "Comma delimited list of 3 private subnets CIDR (ex.: 10.0.10.0/24,10.0.11.0/24,10.0.12.0/24)"
+    Type: CommaDelimitedList
+    Default: 10.0.10.0/24,10.0.11.0/24,10.0.12.0/24
+
+  PublicSubnetsCidr:
+    Description: "Comma delimited list of 3 public subnets CIDR (ex.: 10.0.0.0/24,10.0.1.0/24,10.0.2.0/24)"
+    Type: CommaDelimitedList
+    Default: 10.0.0.0/24,10.0.1.0/24,10.0.2.0/24
+
+  VpcCidr:
+    Description: "VPC CIDR (/16) (ex.: 10.0.0.0/16)"
+    Type: String
+    Default: 10.0.0.0/16
+
+  Project:
+    Description: "The name of the project (eg: common, elia, query-assistant)"
+    Type: String
+    Default: common
+
+#-----------------------------
+# [ RESOURCES ]
+#-----------------------------
+
+Resources:
+  # VPC
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: True
+      EnableDnsHostnames: True
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-${Project}-vpc
+        - Key: Env
+          Value: !Ref Env
+        - Key: Project
+          Value: !Ref Project
+
+  Route53InternalZone:
+    Type: "AWS::Route53::HostedZone"
+    Properties:
+      Name: !Sub ${Env}.${Prefix}.internal
+      VPCs:
+        - VPCId: !Ref VPC
+          VPCRegion: !Ref "AWS::Region"
+
+  # IPv6 CIDR Block
+  Ipv6VPCCidrBlock:
+    Type: AWS::EC2::VPCCidrBlock
+    Properties:
+      AmazonProvidedIpv6CidrBlock: true
+      VpcId: !Ref VPC
+
+  # Internet Gateway
+  Igw:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-${Project}-igw
+        - Key: Env
+          Value: !Ref Env
+        - Key: Project
+          Value: !Ref Project
+
+  IgwAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref Igw
+      VpcId: !Ref VPC
+
+  Eigw:
+    Type: AWS::EC2::EgressOnlyInternetGateway
+    Properties:
+      VpcId: !Ref VPC
+
+  # Public subnets
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 0
+          - Fn::GetAZs: ""
+      CidrBlock:
+        Fn::Select:
+          - 0
+          - !Ref PublicSubnetsCidr
+      MapPublicIpOnLaunch: True
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-${Project}-subnet-public-a
+        - Key: Env
+          Value: !Ref Env
+        - Key: Project
+          Value: !Ref Project
+        - Key: !Sub kubernetes.io/cluster/${Prefix}-${Env}-k8s-cluster
+          Value: shared
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 1
+          - Fn::GetAZs: ""
+      CidrBlock:
+        Fn::Select:
+          - 1
+          - !Ref PublicSubnetsCidr
+      MapPublicIpOnLaunch: True
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-${Project}-subnet-public-b
+        - Key: Env
+          Value: !Ref Env
+        - Key: Project
+          Value: !Ref Project
+        - Key: !Sub kubernetes.io/cluster/${Prefix}-${Env}-k8s-cluster
+          Value: shared
+
+  PublicSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 2
+          - Fn::GetAZs: ""
+      CidrBlock:
+        Fn::Select:
+          - 2
+          - !Ref PublicSubnetsCidr
+      MapPublicIpOnLaunch: True
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-${Project}-subnet-public-c
+        - Key: Env
+          Value: !Ref Env
+        - Key: Project
+          Value: !Ref Project
+        - Key: !Sub kubernetes.io/cluster/${Prefix}-${Env}-k8s-cluster
+          Value: shared
+
+  # Private subnets
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 0
+          - Fn::GetAZs: ""
+      CidrBlock:
+        Fn::Select:
+          - 0
+          - !Ref PrivateSubnetsCidr
+      MapPublicIpOnLaunch: False
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-${Project}-subnet-private-a
+        - Key: Env
+          Value: !Ref Env
+        - Key: Project
+          Value: !Ref Project
+        - Key: !Sub kubernetes.io/cluster/${Prefix}-${Env}-k8s-cluster
+          Value: shared
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 1
+          - Fn::GetAZs: ""
+      CidrBlock:
+        Fn::Select:
+          - 1
+          - !Ref PrivateSubnetsCidr
+      MapPublicIpOnLaunch: False
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-${Project}-subnet-private-b
+        - Key: Env
+          Value: !Ref Env
+        - Key: Project
+          Value: !Ref Project
+        - Key: !Sub kubernetes.io/cluster/${Prefix}-${Env}-k8s-cluster
+          Value: shared
+
+  PrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 2
+          - Fn::GetAZs: ""
+      CidrBlock:
+        Fn::Select:
+          - 2
+          - !Ref PrivateSubnetsCidr
+      MapPublicIpOnLaunch: False
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-${Project}-subnet-private-c
+        - Key: Env
+          Value: !Ref Env
+        - Key: Project
+          Value: !Ref Project
+        - Key: !Sub kubernetes.io/cluster/${Prefix}-${Env}-k8s-cluster
+          Value: shared
+
+  # Route Tables
+  RouteTablePublic:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-${Project}-rt-public
+        - Key: Env
+          Value: !Ref Env
+        - Key: Project
+          Value: !Ref Project
+
+  RouteTablePrivate1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-${Project}-rt-private-a
+        - Key: Env
+          Value: !Ref Env
+        - Key: Project
+          Value: !Ref Project
+
+  RouteTablePrivate2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-${Project}-rt-private-b
+        - Key: Env
+          Value: !Ref Env
+        - Key: Project
+          Value: !Ref Project
+
+  RouteTablePrivate3:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-${Project}-rt-private-c
+        - Key: Env
+          Value: !Ref Env
+        - Key: Project
+          Value: !Ref Project
+
+  # Route Table Associations
+  PublicSubnet1Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTablePublic
+      SubnetId: !Ref PublicSubnet1
+
+  PublicSubnet2Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTablePublic
+      SubnetId: !Ref PublicSubnet2
+
+  PublicSubnet3Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTablePublic
+      SubnetId: !Ref PublicSubnet3
+
+  PrivateSubnet1Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTablePrivate1
+      SubnetId: !Ref PrivateSubnet1
+
+  PrivateSubnet2Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTablePrivate2
+      SubnetId: !Ref PrivateSubnet2
+
+  PrivateSubnet3Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref RouteTablePrivate3
+      SubnetId: !Ref PrivateSubnet3
+
+  # S3 Endpoint
+  S3Endpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      RouteTableIds:
+        - !Ref RouteTablePrivate1
+        - !Ref RouteTablePrivate2
+        - !Ref RouteTablePrivate3
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+      VpcId: !Ref VPC
+
+  # NAT Gateways
+  NatGateway1EIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  NatGateway2EIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  NatGateway3EIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  NatGateway1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGateway1EIP.AllocationId
+      SubnetId: !Ref PublicSubnet1
+
+  NatGateway2:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGateway2EIP.AllocationId
+      SubnetId: !Ref PublicSubnet2
+
+  NatGateway3:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGateway3EIP.AllocationId
+      SubnetId: !Ref PublicSubnet3
+
+  # Public Routes
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: Igw
+    Properties:
+      RouteTableId: !Ref RouteTablePublic
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref Igw
+  PublicDefaultRouteV6:
+    Type: AWS::EC2::Route
+    DependsOn: Igw
+    Properties:
+      RouteTableId: !Ref RouteTablePublic
+      DestinationIpv6CidrBlock: "::/0"
+      GatewayId: !Ref Igw
+
+  # Private Routes
+  Private1DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: Igw
+    Properties:
+      RouteTableId: !Ref RouteTablePrivate1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+  Private1DefaultRouteV6:
+    Type: AWS::EC2::Route
+    DependsOn: Eigw
+    Properties:
+      RouteTableId: !Ref RouteTablePrivate1
+      DestinationIpv6CidrBlock: "::/0"
+      EgressOnlyInternetGatewayId: !Ref Eigw
+
+  Private2DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: Igw
+    Properties:
+      RouteTableId: !Ref RouteTablePrivate2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway2
+  Private2DefaultRouteV6:
+    Type: AWS::EC2::Route
+    DependsOn: Eigw
+    Properties:
+      RouteTableId: !Ref RouteTablePrivate2
+      DestinationIpv6CidrBlock: "::/0"
+      EgressOnlyInternetGatewayId: !Ref Eigw
+
+  Private3DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: Igw
+    Properties:
+      RouteTableId: !Ref RouteTablePrivate3
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway3
+  Private3DefaultRouteV6:
+    Type: AWS::EC2::Route
+    DependsOn: Eigw
+    Properties:
+      RouteTableId: !Ref RouteTablePrivate3
+      DestinationIpv6CidrBlock: "::/0"
+      EgressOnlyInternetGatewayId: !Ref Eigw
+
+  # Default Security Group
+  DefaultSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${Prefix}-${Env}-${Project}-default
+      GroupDescription: !Sub ${Prefix}-${Env}-${Project}-default
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: "tcp"
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref BastionSG
+          Description: Allow SSH access to all private instances associated with SGBastion
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-${Project}-sg-default
+        - Key: Env
+          Value: !Ref Env
+        - Key: Project
+          Value: !Ref Project
+
+  # Bastion Security Group
+  BastionSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${Prefix}-${Env}-${Project}-sg-bastion
+      GroupDescription: !Sub ${Prefix}-${Env}-${Project}-sg-bastion
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: "tcp"
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: "Allow SSH access to all IPV4s"
+        - IpProtocol: "tcp"
+          FromPort: 19999
+          ToPort: 19999
+          CidrIp: !Ref VpcCidr
+          Description: "Allow port access to all IPs of the VPC"
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-${Project}-sg-bastion
+        - Key: Env
+          Value: !Ref Env
+        - Key: Project
+          Value: !Ref Project
+
+  # Bastion
+  ControlPortAddress:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  # question : Why is the EIP associated with AllocationId:! GetAtt ControlPortAddress.AllocationId
+  # and not (EIP:! Ref) + (InstanceId:! Ref Ec2Instance)?
+  AssociateControlPort:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt ControlPortAddress.AllocationId
+      NetworkInterfaceId: !Ref controlXface
+
+  controlXface:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      Description: Interface for controlling traffic such as SSH
+      GroupSet:
+      - !Ref BastionSG
+      Tags:
+        - Key: Name
+          Value: !Sub ${Prefix}-${Env}-${Project}-eni-bastion
+        - Key: Env
+          Value: !Ref Env
+        - Key: Project
+          Value: !Ref Project
+        - Key: Network
+          Value: Control
+
+  Ec2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", 64]
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      NetworkInterfaces:
+        -
+          NetworkInterfaceId: !Ref controlXface
+          DeviceIndex: "0"
+      Tags:
+        -
+          Key: Name
+          Value: !Sub ${Prefix}-${Env}-${Project}-instance-bastion
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          setHostname="${Prefix}-${Env}-${Project}-bastion.`ec2metadata --instance-id`"
+          hostname $setHostname
+          echo "$setHostname" > /etc/hostname
+          sed -i "s/127.0.0.1 localhost/127.0.0.1 localhost $setHostname/g" /etc/hosts
+          apt-get update -y
+          apt-get install -y cloud-guest-utils curl gatling git htop mc ncdu python python-pip zsh
+          pip install --upgrade awscli
+          pip install --upgrade https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz
+          /usr/local/bin/cfn-init --stack ${AWS::StackName} --resource Ec2Instance --region ${AWS::Region}
+
+#-----------------------------
+# [ OUTPUTS/EXPORTS ]
+#-----------------------------
+
+Outputs:
+  VPC:
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: !Sub ${Prefix}-${Env}-${Project}-VPCid
+
+  Env:
+    Description: Env
+    Value: !Ref Env
+    Export:
+      Name: !Sub ${Env}
+
+  Prefix:
+    Description: Env
+    Value: !Ref Prefix
+    Export:
+      Name: !Sub ${Prefix}
+
+  Project:
+    Description: Env
+    Value: !Ref Project
+    Export:
+      Name: !Sub ${Project}
+
+  KeyName:
+    Description: KeyName
+    Value: !Ref KeyName
+    Export:
+      Name: !Sub ${Prefix}-${Env}-${Project}-KeyName
+
+  PublicSubnet1:
+    Description: Public subnet 1
+    Value: !Ref PublicSubnet1
+    Export:
+      Name: !Sub ${Prefix}-${Env}-${Project}-PublicSubnet1
+
+  PublicSubnet2:
+    Description: Public subnet 2
+    Value: !Ref PublicSubnet2
+    Export:
+      Name: !Sub ${Prefix}-${Env}-${Project}-PublicSubnet2
+
+  PublicSubnet3:
+    Description: Public subnet 3
+    Value: !Ref PublicSubnet3
+    Export:
+      Name: !Sub ${Prefix}-${Env}-${Project}-PublicSubnet3
+
+  PrivateSubnet1:
+    Description: Private subnet 1
+    Value: !Ref PrivateSubnet1
+    Export:
+      Name: !Sub ${Prefix}-${Env}-${Project}-PrivateSubnet1
+
+  PrivateSubnet1AZ:
+    Description: Private subnet 1 AZ
+    Value: !GetAtt PrivateSubnet1.AvailabilityZone
+    Export:
+      Name: !Sub ${Prefix}-${Env}-${Project}-PrivateSubnet1AZ
+
+  PrivateSubnet2:
+    Description: Private subnet 2
+    Value: !Ref PrivateSubnet2
+    Export:
+      Name: !Sub ${Prefix}-${Env}-${Project}-PrivateSubnet2
+
+  PrivateSubnet2AZ:
+    Description: Private subnet 2 AZ
+    Value: !GetAtt PrivateSubnet2.AvailabilityZone
+    Export:
+      Name: !Sub ${Prefix}-${Env}-${Project}-PrivateSubnet2AZ
+
+  PrivateSubnet3:
+    Description: Private subnet 3
+    Value: !Ref PrivateSubnet3
+    Export:
+      Name: !Sub ${Prefix}-${Env}-${Project}-PrivateSubnet3
+
+  PrivateSubnet3AZ:
+    Description: Private subnet 3 AZ
+    Value: !GetAtt PrivateSubnet3.AvailabilityZone
+    Export:
+      Name: !Sub ${Prefix}-${Env}-${Project}-PrivateSubnet3AZ
+
+  DefaultSG:
+    Description: Default Security Group
+    Value: !Ref DefaultSG
+    Export:
+      Name: !Sub ${Prefix}-${Env}-${Project}-DefaultSG
+
+  BastionSG:
+    Description: Bastion Security Group
+    Value: !Ref BastionSG
+    Export:
+      Name: !Sub ${Prefix}-${Env}-${Project}-BastionSG
+
+  BastionId:
+    Description: Bastion EC2 instance ID
+    Value: !Ref Ec2Instance
+    Export:
+      Name: !Sub ${Prefix}-${Env}-${Project}-BastionId
+
+  BastionPrivateIp:
+    Description: Bastion private IP
+    Value: !GetAtt Ec2Instance.PrivateIp
+    Export:
+      Name: !Sub ${Prefix}-${Env}-${Project}-BastionPrivateIp
+
+  BastionPublicIp:
+    Description: Bastion public IP
+    Value: !GetAtt Ec2Instance.PublicIp
+    Export:
+      Name: !Sub ${Prefix}-${Env}-${Project}-BastionPublicIp
+
+  S3Endpoint:
+    Description: S3 Endpoint ID
+    Value: !Ref S3Endpoint
+    Export:
+      Name: !Sub ${Prefix}-${Env}-${Project}-S3Endpoint

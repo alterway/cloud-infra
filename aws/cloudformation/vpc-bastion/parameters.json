@@ -1,0 +1,18 @@
+[
+  {
+    "ParameterKey": "Env",
+    "ParameterValue": "default"
+  },
+  {
+    "ParameterKey": "KeyName",
+    "ParameterValue": "default"
+  },
+  {
+    "ParameterKey": "Prefix",
+    "ParameterValue": "default"
+  },
+  {
+    "ParameterKey": "Project",
+    "ParameterValue": "default"
+  }
+]
