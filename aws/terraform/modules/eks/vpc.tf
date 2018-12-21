@@ -11,7 +11,7 @@ resource "aws_vpc" "eks" {
 
   tags = "${
     map(
-     "Name", "terraform-eks-node-${var.cluster-name}",
+     "Name", "terraform-eks-${var.cluster-name}",
      "kubernetes.io/cluster/${var.cluster-name}", "shared",
     )
   }"

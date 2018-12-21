@@ -7,9 +7,9 @@ variable "cluster-name" {
   type    = "string"
 }
 
-variable "aws-region" {
-  default = "eu-west-1"
-  type    = "string"
+variable "aws" {
+  type    = "map"
+  default = {}
 }
 
 variable "node-pools" {

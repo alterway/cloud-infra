@@ -54,6 +54,7 @@ POLICY
 resource "aws_iam_role_policy" "eks-route53-external-dns" {
   name = "terraform-eks-node-route53-external-dns-${var.cluster-name}"
   role = "${aws_iam_role.eks-node.name}"
+  count = "${var.use_route53}"
 
   policy = <<POLICY
 {
