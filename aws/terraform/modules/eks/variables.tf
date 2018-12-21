@@ -19,15 +19,20 @@ variable "node-pools" {
 
 variable "domain_name" {
   description = "Domain name of the parent domain where subdomain is created"
-  default     = "cloud.ger.systems"
+  default     = "domain.tld"
 }
 
 variable "subdomain_name" {
   description = "Subdomain name used to create an independant DNS zone"
-  default     = "staging2.customerhappiness"
+  default     = "subdomain"
 }
 
 variable "subdomain_default_ttl" {
   description = "Subdomain zone default TTL"
   default     = "300"
+}
+
+variable "use_route53" {
+  description = "Create route53 records"
+  default     = false
 }
