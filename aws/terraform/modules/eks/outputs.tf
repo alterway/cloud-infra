@@ -1,7 +1,6 @@
 #
 # Outputs
 #
-
 locals {
   config_map_aws_auth = <<CONFIGMAPAWSAUTH
 
@@ -13,7 +12,7 @@ metadata:
   namespace: kube-system
 data:
   mapRoles: |
-    - rolearn: ${aws_iam_role.eks-node.arn}
+    - rolearn: ${join("\n      username: system:node:{{EC2PrivateDNSName}}\n      groups:\n        - system:bootstrappers\n        - system:nodes\n    - rolearn: ", aws_iam_role.eks-node.*.arn)}
       username: system:node:{{EC2PrivateDNSName}}
       groups:
         - system:bootstrappers

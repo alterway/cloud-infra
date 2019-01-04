@@ -62,7 +62,7 @@ resource "aws_security_group_rule" "eks-cluster-ingress-node-https" {
 }
 
 resource "aws_security_group_rule" "eks-cluster-ingress-workstation-https" {
-  cidr_blocks       = ["${local.workstation-external-cidr}"]
+  cidr_blocks       = ["0.0.0.0/0"]
   description       = "Allow workstation to communicate with the cluster API Server"
   from_port         = 443
   protocol          = "tcp"
@@ -79,6 +79,8 @@ resource "aws_eks_cluster" "eks" {
     security_group_ids = ["${aws_security_group.eks-cluster.id}"]
     subnet_ids         = ["${aws_subnet.eks-private.*.id}", "${aws_subnet.eks.*.id}"]
   }
+
+  version = "${var.kubernetes_version}"
 
   depends_on = [
     "aws_iam_role_policy_attachment.eks-cluster-AmazonEKSClusterPolicy",
