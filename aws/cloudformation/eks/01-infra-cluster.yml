@@ -10,13 +10,20 @@ Parameters:
     Description: Name for the Kubernetes cluster
     Type: String
 
+  ClusterVersion:
+    Description: Kubernetes Cluster Version
+    Type: String
+    AllowedValues:
+      - "1.11"
+      - "1.10"
+
   Env:
     Description: Environment for the stacks (dev/staging/prod)
     Type: String
     AllowedValues:
       - "dev"
-      - "prod"
-      - "staging"
+      - "prd"
+      - "ppd"
 
   Project:
     Description: Project name to set for all resources
@@ -38,11 +45,11 @@ Resources:
   EksCluster:
     Type: AWS::EKS::Cluster
     Properties:
-      Name: !Sub ${Project}-${Env}-${ClusterName}
-      Version: '1.10'
+      Name: !Sub ${Project}-${Env}
+      Version: !Ref ClusterVersion
       RoleArn: !GetAtt AWSServiceRoleForAmazonEKS.Arn
       ResourcesVpcConfig:
-        SecurityGroupIds:
+        SecurityGroupIds: 
           - !Ref ControlPlaneSG
         SubnetIds: !Ref PrivateSubnets
 
@@ -106,5 +113,13 @@ Resources:
       IpProtocol: tcp
       FromPort: 1025
       ToPort: 65535
-      GroupId: !Ref ControlPlaneSG
+      SourceSecurityGroupId: !Ref ControlPlaneSG
+      GroupId: !Ref WorkersSG
     DependsOn: ControlPlaneSG
+
+Outputs:
+  ControlePlaneSG:
+    Description: Control plane SG
+    Value: !Ref ControlPlaneSG
+    Export:
+      Name: !Sub ${Project}-${Env}-controlplane-sg

@@ -11,12 +11,18 @@ Parameters:
     Type: String
     AllowedValues:
       - dev
-      - prod
-      - staging
+      - prd
+      - ppd
+    Default: prd
+
+  ClusterName:
+    Description: Kubernetes cluster name which will be deployed within this VPC
+    Type: String
 
   Project:
     Description: Project to set for all resources created
     Type: String
+    Default: awh
 
   PrivateSubnetsCidr:
     Description: "Comma delimited list of 3 private subnets CIDR. (ex: 10.0.10.0/24,10.0.11.0/24,10.0.12.0/24)"
@@ -47,6 +53,8 @@ Resources:
           Value: !Sub ${Project}-${Env}
         - Key: Env
           Value: !Ref Env
+        - Key: !Sub kubernetes.io/cluster/${Project}-${Env}
+          Value: shared
 
   # CIDR Block IPv6
   Ipv6VPCCidrBlock:
@@ -89,6 +97,8 @@ Resources:
           Value: !Sub ${Project}-${Env}-public-a
         - Key: Env
           Value: !Ref Env
+        - Key: !Sub kubernetes.io/cluster/${Project}-${Env}
+          Value: shared
 
   PublicSubnet2:
     Type: "AWS::EC2::Subnet"
@@ -102,6 +112,8 @@ Resources:
           Value: !Sub ${Project}-${Env}-public-b
         - Key: Env
           Value: !Ref Env
+        - Key: !Sub kubernetes.io/cluster/${Project}-${Env}
+          Value: shared
 
   PublicSubnet3:
     Type: "AWS::EC2::Subnet"
@@ -115,6 +127,8 @@ Resources:
           Value: !Sub ${Project}-${Env}-public-c
         - Key: Env
           Value: !Ref Env
+        - Key: !Sub kubernetes.io/cluster/${Project}-${Env}
+          Value: shared
 
   # Subnets privates
   PrivateSubnet1:
@@ -129,6 +143,8 @@ Resources:
           Value: !Sub ${Project}-${Env}-private-a
         - Key: Env
           Value: !Ref Env
+        - Key: !Sub kubernetes.io/cluster/${Project}-${Env}
+          Value: shared
 
   PrivateSubnet2:
     Type: "AWS::EC2::Subnet"
@@ -142,6 +158,8 @@ Resources:
           Value: !Sub ${Project}-${Env}-private-b
         - Key: Env
           Value: !Ref Env
+        - Key: !Sub kubernetes.io/cluster/${Project}-${Env}
+          Value: shared
 
   PrivateSubnet3:
     Type: "AWS::EC2::Subnet"
@@ -155,6 +173,8 @@ Resources:
           Value: !Sub ${Project}-${Env}-private-c
         - Key: Env
           Value: !Ref Env
+        - Key: !Sub kubernetes.io/cluster/${Project}-${Env}
+          Value: shared
 
   # Route Tables
   RouteTablePublic:
